@@ -1,6 +1,7 @@
 locals {
   max_subnet_length = max(
     length(var.private_subnets),
+    length(var.vpc_peering_subnets),
     length(var.elasticache_subnets),
     length(var.database_subnets),
     length(var.redshift_subnets),
@@ -10,7 +11,7 @@ locals {
   # Use `local.vpc_id` to give a hint to Terraform that subnets should be deleted before secondary CIDR blocks can be free!
   vpc_id = try(aws_vpc_ipv4_cidr_block_association.this[0].vpc_id, aws_vpc.this[0].id, "")
 
-  create_vpc = var.create_vpc && var.putin_khuylo
+  create_vpc = var.create_vpc
 }
 
 ################################################################################
@@ -401,6 +402,33 @@ resource "aws_subnet" "private" {
 }
 
 ################################################################################
+# VPC Peering subnet
+################################################################################
+
+resource "aws_subnet" "vpc_peering" {
+  count = local.create_vpc && length(var.vpc_peering_subnets) > 0 ? length(var.vpc_peering_subnets) : 0
+
+  vpc_id                          = local.vpc_id
+  cidr_block                      = var.vpc_peering_subnets[count.index]
+  availability_zone               = length(regexall("^[a-z]{2}-", element(var.azs, count.index))) > 0 ? element(var.azs, count.index) : null
+  availability_zone_id            = length(regexall("^[a-z]{2}-", element(var.azs, count.index))) == 0 ? element(var.azs, count.index) : null
+  assign_ipv6_address_on_creation = var.vpc_peering_subnet_assign_ipv6_address_on_creation == null ? var.assign_ipv6_address_on_creation : var.vpc_peering_subnet_assign_ipv6_address_on_creation
+
+  ipv6_cidr_block = var.enable_ipv6 && length(var.vpc_peering_subnet_ipv6_prefixes) > 0 ? cidrsubnet(aws_vpc.this[0].ipv6_cidr_block, 8, var.vpc_peering_subnet_ipv6_prefixes[count.index]) : null
+
+  tags = merge(
+    {
+      "Name" = format(
+        "${var.name}-${var.vpc_peering_subnet_suffix}-%s",
+        element(var.azs, count.index),
+      )
+    },
+    var.tags,
+    var.vpc_peering_subnet_tags,
+  )
+}
+
+################################################################################
 # Outpost subnet
 ################################################################################
 
@@ -733,6 +761,57 @@ resource "aws_network_acl_rule" "private_outbound" {
   protocol        = var.private_outbound_acl_rules[count.index]["protocol"]
   cidr_block      = lookup(var.private_outbound_acl_rules[count.index], "cidr_block", null)
   ipv6_cidr_block = lookup(var.private_outbound_acl_rules[count.index], "ipv6_cidr_block", null)
+}
+
+################################################################################
+# VPC Peering Network ACLs
+################################################################################
+
+resource "aws_network_acl" "vpc_peering" {
+  count = local.create_vpc && var.vpc_peering_dedicated_network_acl && length(var.vpc_peering_subnets) > 0 ? 1 : 0
+
+  vpc_id     = local.vpc_id
+  subnet_ids = aws_subnet.vpc_peering[*].id
+
+  tags = merge(
+    { "Name" = "${var.name}-${var.vpc_peering_subnet_suffix}" },
+    var.tags,
+    var.vpc_peering_acl_tags,
+  )
+}
+
+resource "aws_network_acl_rule" "vpc_peering_inbound" {
+  count = local.create_vpc && var.vpc_peering_dedicated_network_acl && length(var.vpc_peering_subnets) > 0 ? length(var.vpc_peering_inbound_acl_rules) : 0
+
+  network_acl_id = aws_network_acl.vpc_peering[0].id
+
+  egress          = false
+  rule_number     = var.vpc_peering_inbound_acl_rules[count.index]["rule_number"]
+  rule_action     = var.vpc_peering_inbound_acl_rules[count.index]["rule_action"]
+  from_port       = lookup(var.vpc_peering_inbound_acl_rules[count.index], "from_port", null)
+  to_port         = lookup(var.vpc_peering_inbound_acl_rules[count.index], "to_port", null)
+  icmp_code       = lookup(var.vpc_peering_inbound_acl_rules[count.index], "icmp_code", null)
+  icmp_type       = lookup(var.vpc_peering_inbound_acl_rules[count.index], "icmp_type", null)
+  protocol        = var.vpc_peering_inbound_acl_rules[count.index]["protocol"]
+  cidr_block      = lookup(var.vpc_peering_inbound_acl_rules[count.index], "cidr_block", null)
+  ipv6_cidr_block = lookup(var.vpc_peering_inbound_acl_rules[count.index], "ipv6_cidr_block", null)
+}
+
+resource "aws_network_acl_rule" "vpc_peering_outbound" {
+  count = local.create_vpc && var.vpc_peering_dedicated_network_acl && length(var.vpc_peering_subnets) > 0 ? length(var.vpc_peering_outbound_acl_rules) : 0
+
+  network_acl_id = aws_network_acl.vpc_peering[0].id
+
+  egress          = true
+  rule_number     = var.vpc_peering_outbound_acl_rules[count.index]["rule_number"]
+  rule_action     = var.vpc_peering_outbound_acl_rules[count.index]["rule_action"]
+  from_port       = lookup(var.vpc_peering_outbound_acl_rules[count.index], "from_port", null)
+  to_port         = lookup(var.vpc_peering_outbound_acl_rules[count.index], "to_port", null)
+  icmp_code       = lookup(var.vpc_peering_outbound_acl_rules[count.index], "icmp_code", null)
+  icmp_type       = lookup(var.vpc_peering_outbound_acl_rules[count.index], "icmp_type", null)
+  protocol        = var.vpc_peering_outbound_acl_rules[count.index]["protocol"]
+  cidr_block      = lookup(var.vpc_peering_outbound_acl_rules[count.index], "cidr_block", null)
+  ipv6_cidr_block = lookup(var.vpc_peering_outbound_acl_rules[count.index], "ipv6_cidr_block", null)
 }
 
 ################################################################################
@@ -1069,6 +1148,16 @@ resource "aws_route_table_association" "private" {
   count = local.create_vpc && length(var.private_subnets) > 0 ? length(var.private_subnets) : 0
 
   subnet_id = element(aws_subnet.private[*].id, count.index)
+  route_table_id = element(
+    aws_route_table.private[*].id,
+    var.single_nat_gateway ? 0 : count.index,
+  )
+}
+
+resource "aws_route_table_association" "vpc_peering" {
+  count = local.create_vpc && length(var.vpc_peering_subnets) > 0 ? length(var.vpc_peering_subnets) : 0
+
+  subnet_id = element(aws_subnet.vpc_peering[*].id, count.index)
   route_table_id = element(
     aws_route_table.private[*].id,
     var.single_nat_gateway ? 0 : count.index,

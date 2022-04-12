@@ -1187,8 +1187,31 @@ variable "flow_log_per_hour_partition" {
   default     = false
 }
 
-variable "putin_khuylo" {
-  description = "Do you agree that Putin doesn't respect Ukrainian sovereignty and territorial integrity? More info: https://en.wikipedia.org/wiki/Putin_khuylo!"
-  type        = bool
-  default     = true
+#TODO ちゃんと作る
+variable "vpc_peering_subnets" {
+  default = ""
+}
+variable "vpc_peering_subnet_assign_ipv6_address_on_creation" {
+  default = ""
+}
+variable "vpc_peering_subnet_ipv6_prefixes" {
+  default = ""
+}
+variable "vpc_peering_subnet_suffix" {
+  default = ""
+}
+variable "vpc_peering_subnet_tags" {
+  default = ""
+}
+variable "vpc_peering_dedicated_network_acl" {
+  default = ""
+}
+variable "vpc_peering_acl_tags" {
+  default = ""
+}
+variable "vpc_peering_inbound_acl_rules" {
+  default = ""
+}
+variable "vpc_peering_outbound_acl_rules" {
+  default = ""
 }

@@ -88,6 +88,26 @@ output "private_subnets_ipv6_cidr_blocks" {
   value       = aws_subnet.private[*].ipv6_cidr_block
 }
 
+output "vpc_peering_subnets" {
+  description = "List of IDs of vpc_peering subnets"
+  value       = aws_subnet.vpc_peering[*].id
+}
+
+output "vpc_peering_subnet_arns" {
+  description = "List of ARNs of vpc_peering subnets"
+  value       = aws_subnet.vpc_peering[*].arn
+}
+
+output "vpc_peering_subnets_cidr_blocks" {
+  description = "List of cidr_blocks of vpc_peering subnets"
+  value       = aws_subnet.vpc_peering[*].cidr_block
+}
+
+output "vpc_peering_subnets_ipv6_cidr_blocks" {
+  description = "List of IPv6 cidr_blocks of vpc_peering subnets in an IPv6 enabled VPC"
+  value       = aws_subnet.vpc_peering[*].ipv6_cidr_block
+}
+
 output "public_subnets" {
   description = "List of IDs of public subnets"
   value       = aws_subnet.public[*].id
