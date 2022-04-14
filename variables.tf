@@ -1187,31 +1187,68 @@ variable "flow_log_per_hour_partition" {
   default     = false
 }
 
-#TODO ちゃんと作る
 variable "vpc_peering_subnets" {
-  default = ""
+  description = "A list of vpc_peering subnets."
+  type        = list(string)
+  default     = []
 }
 variable "vpc_peering_subnet_assign_ipv6_address_on_creation" {
-  default = ""
+  description = "Assign IPv6 address on vpc_peering subnet, must be disabled to change IPv6 CIDRs. This is the IPv6 equivalent of map_public_ip_on_launch"
+  type        = bool
+  default     = null
 }
 variable "vpc_peering_subnet_ipv6_prefixes" {
-  default = ""
+  description = "Assigns IPv6 vpc peering subnet id based on the Amazon provided /56 prefix base 10 integer (0-256). Must be of equal length to the corresponding IPv4 subnet list"
+  type        = list(string)
+  default     = []
 }
 variable "vpc_peering_subnet_suffix" {
-  default = ""
+  description = "Suffix to append to vpc_peering subnets name"
+  type        = string
+  default     = "vpc_peering"
 }
 variable "vpc_peering_subnet_tags" {
-  default = ""
+  description = "Additional tags for the vpc_peering subnets"
+  type        = map(string)
+  default     = {}
 }
 variable "vpc_peering_dedicated_network_acl" {
-  default = ""
+  description = "Whether to use dedicated network ACL (not default) and custom rules for vpc_peering subnets"
+  type        = bool
+  default     = false
 }
 variable "vpc_peering_acl_tags" {
-  default = ""
+  description = "Additional tags for the vpc_peering subnets network ACL"
+  type        = map(string)
+  default     = {}
 }
 variable "vpc_peering_inbound_acl_rules" {
-  default = ""
+  description = "vpc_peering subnets outbound network ACLs"
+  type        = list(map(string))
+
+  default = [
+    {
+      rule_number = 100
+      rule_action = "allow"
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_block  = "0.0.0.0/0"
+    },
+  ]
 }
 variable "vpc_peering_outbound_acl_rules" {
-  default = ""
+  description = "vpc_peering subnets outbound network ACLs"
+  type        = list(map(string))
+
+  default = [
+    {
+      rule_number = 100
+      rule_action = "allow"
+      from_port   = 0
+      to_port     = 0
+      protocol    = "-1"
+      cidr_block  = "0.0.0.0/0"
+    },
+  ]
 }
